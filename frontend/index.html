@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>INFERENCE — Multi Agent Debate Model</title>
+  <meta name="description" content="Multi-agent AI debate system for unbiased fairness auditing." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@700&family=Outfit:wght@900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── HEADER ─────────────────────────────────────────────────── -->
+  <header id="header">
+    <h1 id="title">INFERENCE</h1>
+    <p id="subtitle">Multi Agent Debate Model</p>
+  </header>
+
+  <!-- ── SPLIT PANELS ───────────────────────────────────────────── -->
+  <section id="panels">
+
+    <!-- LEFT: Debate Logs (2/3) -->
+    <div id="panel-debate" class="panel">
+      <span class="panel-label">DEBATE</span>
+      <div id="debate-output" class="panel-body">
+        <span id="init-line" class="log-line dim">Ready.</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Answer / Agents (1/3) -->
+    <div id="panel-answer" class="panel">
+      <span class="panel-label">ANSWER</span>
+      <div id="answer-body" class="panel-body">
+
+        <!-- Agent status list -->
+        <ul id="agent-list">
+          <li class="agent-item" data-agent="data_statistician">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 1</span>
+            <span class="agent-name-label">DATA STATISTICIAN</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+          <li class="agent-item" data-agent="fairness_auditor">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 2</span>
+            <span class="agent-name-label">FAIRNESS AUDITOR</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+          <li class="agent-item" data-agent="domain_expert">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 3</span>
+            <span class="agent-name-label">DOMAIN EXPERT</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+          <li class="agent-item" data-agent="bias_adversary">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 4</span>
+            <span class="agent-name-label">BIAS ADVERSARY</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+          <li class="agent-item" data-agent="ethical_reviewer">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 5</span>
+            <span class="agent-name-label">ETHICAL REVIEWER</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+          <li class="agent-item" data-agent="final_judge">
+            <span class="agent-bullet">•</span>
+            <span class="agent-tag">AGENT 6</span>
+            <span class="agent-name-label">FINAL JUDGE</span>
+            <span class="agent-status idle">IDLE</span>
+          </li>
+        </ul>
+
+        <!-- Final Score Box (hidden until report arrives) -->
+        <div id="score-box" class="hidden">
+          <div id="score-label">BIAS SCORE</div>
+          <div id="score-value">--</div>
+          <div id="score-severity">--</div>
+          <div id="score-summary"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── COMMAND INPUT ──────────────────────────────────────────── -->
+  <section id="cmd-section">
+
+    <!-- Config strip (model, rounds, use-case, file upload) -->
+    <div id="config-strip">
+      <label class="cfg-label">
+        MODEL
+        <select id="model-select" class="cfg-select">
+          <optgroup label="xAI Grok">
+            <option value="grok-4.20-reasoning" selected>GROK 4.20 REASONING</option>
+            <option value="grok-4.20-non-reasoning">GROK 4.20 FAST</option>
+            <option value="grok-4.1-fast-reasoning">GROK 4.1 FAST</option>
+          </optgroup>
+          <optgroup label="Google Gemini">
+            <option value="gemini-2.5-pro">GEMINI 2.5 PRO</option>
+            <option value="gemini-2.5-flash">GEMINI 2.5 FLASH</option>
+            <option value="gemini-3-flash-preview">GEMINI 3 FLASH</option>
+          </optgroup>
+        </select>
+      </label>
+
+      <label class="cfg-label">
+        ROUNDS
+        <select id="rounds-select" class="cfg-select">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="3">3</option>
+        </select>
+      </label>
+
+      <label class="cfg-label">
+        USE CASE
+        <select id="usecase-select" class="cfg-select">
+          <option value="job_hiring">JOB HIRING</option>
+          <option value="loan_approval">LOAN APPROVAL</option>
+          <option value="healthcare">HEALTHCARE</option>
+          <option value="education">EDUCATION</option>
+          <option value="general" selected>GENERAL</option>
+        </select>
+      </label>
+
+      <label class="cfg-label">
+        TARGET COL
+        <input id="target-col-input" class="cfg-input" placeholder="e.g. hired" />
+      </label>
+
+      <label class="cfg-label">
+        PROTECTED ATTRS
+        <input id="protected-input" class="cfg-input" placeholder="gender, caste, age" />
+      </label>
+
+      <label id="file-label" class="cfg-label file-upload-label" for="file-input">
+        <span id="file-label-text">[ + DATASET.CSV ]</span>
+        <input type="file" id="file-input" accept=".csv" hidden />
+      </label>
+    </div>
+
+    <!-- Main command bar -->
+    <div id="cmd-bar">
+      <input
+        id="cmd-input"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="ENTER...."
+      />
+      <button id="execute-btn">EXECUTE</button>
+    </div>
+  </section>
+
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# === Core Framework ===
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sse-starlette>=2.0.0
+python-multipart>=0.0.9
+
+# === LangGraph + LangChain ===
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# === Model SDKs ===
+openai>=1.50.0
+google-genai>=1.0.0
+
+# === Fairness & ML ===
+fairlearn>=0.10.0
+pandas>=2.0.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# === Utilities ===
+python-dotenv>=1.0.0
+aiofiles>=24.1.0

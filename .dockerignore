@@ -1,0 +1,13 @@
+.git
+.env
+.env.example
+__pycache__
+*.pyc
+backend/rl/trajectories/
+*.jsonl
+audit_test.py
+LICENSE
+.gitignore
+README.md
+Dockerfile
+.dockerignore

@@ -35,6 +35,25 @@ python -m backend.main
 ### 4. Open the UI
 Visit: http://localhost:8000
 
+## Google Cloud Deployment
+
+This prototype is ready for deployment to **Google Cloud Run**.
+
+### 1. Build & Push to Artifact Registry
+```bash
+gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/inference
+```
+
+### 2. Deploy to Cloud Run
+```bash
+gcloud run deploy inference \
+  --image gcr.io/YOUR_PROJECT_ID/inference \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="XAI_API_KEY=your_key,GOOGLE_API_KEY=your_key"
+```
+
 ## Tech Stack
 
 | Layer | Technology |

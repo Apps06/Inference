@@ -93,13 +93,13 @@ async def _run_one(agent_meta: dict, state: DebateState, round_num: int) -> Agen
     content = await generate(
         system_prompt=system,
         user_message=user_msg,
-        model_name=state.get("model_backend", "grok-4.20-reasoning"),
+        model_name="grok-4.20-reasoning",
         temperature=0.4 if round_num == 0 else 0.55,
         max_tokens=1024,
     )
     return AgentMessage(
         agent=agent_meta["id"],
-        role=f"{agent_meta['emoji']} {agent_meta['name']}",
+        role=agent_meta["name"],
         content=content,
         round=round_num,
     )
@@ -113,7 +113,7 @@ async def _run_one_safe(agent_meta: dict, state: DebateState, round_num: int) ->
         log.error("Agent %s round %d failed: %s", agent_meta["id"], round_num, exc)
         return AgentMessage(
             agent=agent_meta["id"],
-            role=f"{agent_meta['emoji']} {agent_meta['name']}",
+            role=agent_meta["name"],
             content=f"[Agent error — {exc}]",
             round=round_num,
         )
@@ -142,10 +142,32 @@ async def run_judge(state: DebateState) -> str:
         "All debate rounds are complete. "
         "Produce the final bias audit report as valid JSON."
     )
-    return await generate(
-        system_prompt=system,
-        user_message=user_msg,
-        model_name=state.get("model_backend", "grok-4.20-reasoning"),
-        temperature=0.2,
-        max_tokens=2048,
-    )
+    
+    try:
+        # Primary attempt: Use Gemini for the final judgment
+        return await generate(
+            system_prompt=system,
+            user_message=user_msg,
+            model_name="gemini-2.5-pro",
+            temperature=0.2,
+            max_tokens=2048,
+        )
+    except Exception as exc:
+        log.warning("Gemini failed during final judgment: %s. Falling back to Grok.", exc)
+        try:
+            # Fallback attempt: Use Grok if Gemini is down
+            return await generate(
+                system_prompt=system,
+                user_message=user_msg,
+                model_name="grok-4.20-reasoning",
+                temperature=0.2,
+                max_tokens=2048,
+            )
+        except Exception as fallback_exc:
+            log.error("Fallback Grok model also failed: %s", fallback_exc)
+            # Final safety net: Return a valid JSON error string so the frontend doesn't crash
+            import json
+            return json.dumps({
+                "error": "Model Failure",
+                "message": "Both primary (Gemini) and fallback (Grok) models failed to generate the final report."
+            })

@@ -1,4 +1,4 @@
-# Unbiased AI Decision ⚡
+# Unbiased AI Decision
 
 > A multi-agent AI debate system that audits datasets and models for hidden bias — built with LangGraph, xAI Grok, and Google Gemini.
 
@@ -6,12 +6,12 @@
 
 1. You upload a CSV dataset (or just describe a scenario in the chat)
 2. A team of 6 specialized AI agents runs in parallel and debates across 2 rounds:
-   - 🔬 **Data Statistician** — runs fairness metrics
-   - ⚖️ **Fairness Auditor** — applies formal fairness definitions (disparate impact, etc.)
-   - 📋 **Domain Expert** — adds real-world context for the use case
-   - 🎯 **Bias Adversary** — steelmans counter-arguments
-   - 🏛️ **Ethical & Legal Reviewer** — checks DPDP Act, GDPR, EEOC compliance
-   - ⚡ **Final Judge** — synthesizes everything into a bias score + report
+   - **Data Statistician** — runs fairness metrics
+   - **Fairness Auditor** — applies formal fairness definitions (disparate impact, etc.)
+   - **Domain Expert** — adds real-world context for the use case
+   - **Bias Adversary** — steelmans counter-arguments
+   - **Ethical & Legal Reviewer** — checks DPDP Act, GDPR, EEOC compliance
+   - **Final Judge** — synthesizes everything into a bias score + report
 3. Every debate is logged as a JSONL trajectory for future MARTI RL training
 
 ## Setup

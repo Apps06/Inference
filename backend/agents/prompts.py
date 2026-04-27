@@ -200,35 +200,30 @@ AGENTS = [
     {
         "id": "data_statistician",
         "name": "Data Statistician",
-        "emoji": "🔬",
         "color": "#4f8ef7",
         "system_prompt": DATA_STATISTICIAN_SYSTEM,
     },
     {
         "id": "fairness_auditor",
         "name": "Fairness Auditor",
-        "emoji": "⚖️",
         "color": "#a855f7",
         "system_prompt": FAIRNESS_AUDITOR_SYSTEM,
     },
     {
         "id": "domain_expert",
         "name": "Domain Expert",
-        "emoji": "📋",
         "color": "#10b981",
         "system_prompt": DOMAIN_EXPERT_SYSTEM,
     },
     {
         "id": "bias_adversary",
         "name": "Bias Adversary",
-        "emoji": "🎯",
         "color": "#f97316",
         "system_prompt": BIAS_ADVERSARY_SYSTEM,
     },
     {
         "id": "ethical_reviewer",
         "name": "Ethical & Legal Reviewer",
-        "emoji": "🏛️",
         "color": "#f43f5e",
         "system_prompt": ETHICAL_LEGAL_SYSTEM,
     },
@@ -237,7 +232,6 @@ AGENTS = [
 JUDGE_AGENT = {
     "id": "final_judge",
     "name": "Final Judge",
-    "emoji": "⚡",
     "color": "#eab308",
     "system_prompt": FINAL_JUDGE_SYSTEM,
 }

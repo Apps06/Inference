@@ -1,10 +1,43 @@
 """
-Dataset profiler — generates a human-readable statistical summary of the uploaded CSV.
-Used to give agents rich context about the data without sharing the full file.
+Dataset profiler — generates a human-readable statistical summary of the
+uploaded CSV. Used to give agents rich context about the data without
+sharing the full file.
+
+Fix over v1: positive label is now inferred using the same keyword
+allowlist as fairness_metrics.py, so "No"/"Yes" and "Rejected"/"Approved"
+datasets are handled correctly.
 """
+from __future__ import annotations
+
 import io
 import pandas as pd
 import numpy as np
+
+
+# ── Shared positive-label heuristic (mirrors fairness_metrics._infer_positive_label) ─
+_POSITIVE_KEYWORDS = (
+    "yes", "true", "1", "hired", "approved", "accepted",
+    "passed", "qualified", "selected", "positive", "granted",
+    "admitted", "success", "good", "high",
+)
+
+
+def _infer_positive_label(series: pd.Series):
+    unique_vals = series.dropna().unique()
+    if len(unique_vals) == 0:
+        return 1
+    if set(unique_vals) <= {0, 1}:
+        return 1
+    try:
+        if set(unique_vals) <= {0.0, 1.0}:
+            return 1.0
+    except TypeError:
+        pass
+    str_map = {str(v).strip().lower(): v for v in unique_vals}
+    for kw in _POSITIVE_KEYWORDS:
+        if kw in str_map:
+            return str_map[kw]
+    return series.value_counts().idxmax()
 
 
 def profile_dataset(
@@ -20,17 +53,25 @@ def profile_dataset(
     except Exception as e:
         return f"Error reading dataset: {e}"
 
-    lines = []
-    lines.append(f"Shape: {df.shape[0]} rows × {df.shape[1]} columns")
+    lines: list[str] = []
+    lines.append(f"Shape: {df.shape[0]} rows x {df.shape[1]} columns")
     lines.append(f"Columns: {list(df.columns)}")
-    lines.append(f"Missing values per column: {df.isnull().sum().to_dict()}")
+
+    missing = df.isnull().sum()
+    if missing.any():
+        lines.append(f"Missing values: {missing[missing > 0].to_dict()}")
+    else:
+        lines.append("Missing values: none")
 
     # Target column distribution
     if target_column in df.columns:
-        lines.append(f"\nTarget column '{target_column}' distribution:")
+        pos_label = _infer_positive_label(df[target_column])
+        lines.append(f"\nTarget column '{target_column}' (positive label: {pos_label!r}):")
         vc = df[target_column].value_counts(normalize=True)
         for val, pct in vc.items():
             lines.append(f"  {val}: {pct:.1%}")
+    else:
+        lines.append(f"\nTarget column '{target_column}' not found in dataset.")
 
     # Protected attribute distributions + outcome rates
     for attr in protected_attributes:
@@ -45,21 +86,19 @@ def profile_dataset(
             lines.append(f"  {grp}: {cnt} ({pct:.1%})")
 
         if target_column in df.columns:
-            lines.append(f"  Outcome rates by '{attr}':")
-            # Handle binary (0/1) or categorical targets
-            target_vals = df[target_column].dropna().unique()
-            positive_label = 1 if 1 in target_vals else target_vals[0]
+            pos_label = _infer_positive_label(df[target_column])
+            lines.append(f"  Outcome rates by '{attr}' (positive = {pos_label!r}):")
             grouped = df.groupby(attr)[target_column].apply(
-                lambda x: (x == positive_label).mean()
+                lambda x: (x == pos_label).mean()  # noqa: B023
             )
             for grp, rate in grouped.items():
                 lines.append(f"    {grp}: {rate:.1%} positive outcome rate")
 
-    # Numeric column stats
+    # Numeric column summaries (top 5, excluding protected attributes)
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     relevant_numeric = [c for c in numeric_cols if c not in protected_attributes][:5]
     if relevant_numeric:
-        lines.append(f"\nNumeric feature summaries (top 5):")
+        lines.append("\nNumeric feature summaries (top 5):")
         for col in relevant_numeric:
             mn, mx, med = df[col].min(), df[col].max(), df[col].median()
             lines.append(f"  {col}: min={mn:.2f}, max={mx:.2f}, median={med:.2f}")

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>INFERENCE — Multi Agent Debate Model</title>
-  <meta name="description" content="Multi-agent AI debate system for unbiased fairness auditing." />
+  <meta name="description" content="Multi-agent AI debate system for unbiased fairness auditing. Powered by LangGraph, Grok, and Gemini." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@700&family=Outfit:wght@900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/styles.css" />
@@ -19,8 +19,14 @@
     <p id="subtitle">Multi Agent Debate Model</p>
   </header>
 
-  <!-- ── SPLIT PANELS ───────────────────────────────────────────── -->
-  <section id="panels">
+  <!-- ── TAB BAR ────────────────────────────────────────────────── -->
+  <div id="tab-bar">
+    <button id="tab-debate"  class="tab-btn active" data-tab="debate">DEBATE</button>
+    <button id="tab-history" class="tab-btn"         data-tab="history">HISTORY</button>
+  </div>
+
+  <!-- ── SPLIT PANELS — DEBATE TAB ─────────────────────────────── -->
+  <section id="panels" class="tab-panel active" data-tab="debate">
 
     <!-- LEFT: Debate Logs (2/3) -->
     <div id="panel-debate" class="panel">
@@ -30,7 +36,7 @@
       </div>
     </div>
 
-    <!-- RIGHT: Answer / Agents (1/3) -->
+    <!-- RIGHT: Agents + Report (1/3) -->
     <div id="panel-answer" class="panel">
       <span class="panel-label">ANSWER</span>
       <div id="answer-body" class="panel-body">
@@ -81,8 +87,34 @@
           <div id="score-value">--</div>
           <div id="score-severity">--</div>
           <div id="score-summary"></div>
+
+          <!-- RL Reward Breakdown (hidden until report arrives) -->
+          <div id="reward-box" class="hidden">
+            <div class="reward-label">RL REWARD BREAKDOWN</div>
+            <ul id="reward-list"></ul>
+            <div id="reward-total-line"></div>
+          </div>
         </div>
 
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ── HISTORY TAB ────────────────────────────────────────────── -->
+  <section id="panel-history" class="tab-panel" data-tab="history">
+
+    <div id="history-left" class="panel">
+      <span class="panel-label">PAST DEBATES</span>
+      <div id="history-list" class="panel-body">
+        <span class="log-line dim">Loading history...</span>
+      </div>
+    </div>
+
+    <div id="history-right" class="panel">
+      <span class="panel-label">STATS</span>
+      <div id="history-stats" class="panel-body">
+        <span class="log-line dim">Select a debate or view aggregate stats.</span>
       </div>
     </div>
 
@@ -99,7 +131,8 @@
           <optgroup label="xAI Grok">
             <option value="grok-4.20-reasoning" selected>GROK 4.20 REASONING</option>
             <option value="grok-4.20-non-reasoning">GROK 4.20 FAST</option>
-            <option value="grok-4.1-fast-reasoning">GROK 4.1 FAST</option>
+            <option value="grok-4.1-fast-reasoning">GROK 4.1 FAST REASONING</option>
+            <option value="grok-4.1-fast-non-reasoning">GROK 4.1 FAST</option>
           </optgroup>
           <optgroup label="Google Gemini">
             <option value="gemini-2.5-pro">GEMINI 2.5 PRO</option>

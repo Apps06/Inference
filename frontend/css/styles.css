@@ -49,12 +49,17 @@ body { font-family: var(--font-mono); overflow: hidden; -webkit-font-smoothing: 
 #app {
   height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   padding: 28px 32px 24px;
-  gap: 20px;
+  gap: 0;
   max-width: 1600px;
   margin: 0 auto;
 }
+
+#tab-bar   { margin-top: 16px; }
+#panels,
+#panel-history { margin-top: 12px; flex: 1; min-height: 0; }
+#cmd-section   { margin-top: 12px; }
 
 /* ═══════════════════════════════════════════════════════════════════
    HEADER
@@ -418,9 +423,190 @@ body { font-family: var(--font-mono); overflow: hidden; -webkit-font-smoothing: 
 /* ── Utility ─────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   TAB BAR
+═══════════════════════════════════════════════════════════════════ */
+#tab-bar {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--grey-label);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  padding: 6px 16px 5px;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--grey-text); }
+.tab-btn.active {
+  color: var(--white);
+  border-bottom-color: var(--white);
+}
+
+/* ── Tab panels ──────────────────────────────────────────────────── */
+.tab-panel {
+  display: none;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  min-height: 0;
+}
+.tab-panel.active { display: grid; }
+
+/* ── History layout mirrors the debate panel grid ────────────────── */
+#panel-history {
+  grid-template-columns: 1fr 1fr;
+}
+#history-left, #history-right {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--panel-radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── History list items ──────────────────────────────────────────── */
+.history-item {
+  display: block;
+  padding: 8px 0;
+  border-bottom: 1px solid #1f1f1f;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.history-item:last-child { border-bottom: none; }
+.history-item:hover { background: rgba(255,255,255,0.03); }
+.history-item.selected { background: rgba(255,255,255,0.05); }
+
+.h-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.h-timestamp {
+  font-size: 9px;
+  color: var(--grey-label);
+  letter-spacing: 0.08em;
+}
+.h-usecase {
+  font-size: 9px;
+  color: var(--grey-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.h-score {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+.h-score.low      { color: #6dffb3; }
+.h-score.moderate { color: #ffd666; }
+.h-score.high     { color: #ff9955; }
+.h-score.severe   { color: #ff5555; }
+.h-score.unknown  { color: var(--grey-text); }
+
+.h-severity {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--grey-text);
+  text-transform: uppercase;
+}
+.h-reward {
+  font-size: 9px;
+  color: var(--grey-label);
+  letter-spacing: 0.05em;
+}
+
+/* ── History stats panel ─────────────────────────────────────────── */
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid #1f1f1f;
+  font-size: 11px;
+}
+.stats-row:last-child { border-bottom: none; }
+.stats-key   { color: var(--grey-label); letter-spacing: 0.08em; font-size: 10px; }
+.stats-value { color: var(--white);      font-family: var(--font-mono); }
+
+.stats-section-header {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--grey-label);
+  margin-top: 12px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+/* ── RL Reward Breakdown ─────────────────────────────────────────── */
+#reward-box {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.reward-label {
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--grey-label);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+#reward-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reward-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  padding: 2px 0;
+}
+.reward-key   { color: var(--grey-text); letter-spacing: 0.06em; }
+.reward-bar-wrap {
+  flex: 1;
+  margin: 0 8px;
+  height: 3px;
+  background: #2a2a2a;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.reward-bar {
+  height: 100%;
+  background: var(--white);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+  opacity: 0.7;
+}
+.reward-val { color: var(--white); font-family: var(--font-mono); font-size: 10px; min-width: 36px; text-align: right; }
+#reward-total-line {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--grey-text);
+  letter-spacing: 0.08em;
+  display: flex;
+  justify-content: space-between;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  #panels { grid-template-columns: 1fr; }
+  .tab-panel.active { grid-template-columns: 1fr; }
+  #panel-history    { grid-template-columns: 1fr; }
   #panel-answer { max-height: 300px; }
   #app { padding: 16px; }
 }
+

@@ -69,32 +69,21 @@ async def _run_in_executor(fn, *args) -> Any:
 # Graph nodes
 # ---------------------------------------------------------------------------
 
-async def node_profile_data(state: DebateState) -> dict:
+async def node_prep_data(state: DebateState) -> dict:
     csv = state.get("dataset_csv", "")
     protected = state.get("protected_attributes", [])
     target = state.get("target_column", "")
 
     if csv and protected and target:
-        summary = await _run_in_executor(profile_dataset, csv, protected, target)
+        summary_task = _run_in_executor(profile_dataset, csv, protected, target)
+        metrics_task = _run_in_executor(compute_fairness_metrics, csv, protected, target)
+        summary, metrics = await asyncio.gather(summary_task, metrics_task)
     else:
         summary = "No dataset provided — agents will rely on the user query."
-
-    log.debug("Profile complete: %d chars", len(summary))
-    return {"dataset_summary": summary}
-
-
-async def node_run_fairness_tools(state: DebateState) -> dict:
-    csv = state.get("dataset_csv", "")
-    protected = state.get("protected_attributes", [])
-    target = state.get("target_column", "")
-
-    if csv and protected and target:
-        metrics = await _run_in_executor(compute_fairness_metrics, csv, protected, target)
-    else:
         metrics = {"note": "No dataset or attributes provided — metrics skipped."}
 
-    log.debug("Fairness metrics: %d keys", len(metrics))
-    return {"fairness_metrics": metrics}
+    log.debug("Prep complete: summary %d chars, metrics %d keys", len(summary), len(metrics))
+    return {"dataset_summary": summary, "fairness_metrics": metrics}
 
 
 async def node_debate_round(state: DebateState, config: RunnableConfig) -> dict:
@@ -180,14 +169,12 @@ def _round_router(state: DebateState) -> str:
 
 def _build_graph():
     g = StateGraph(DebateState)
-    g.add_node("profile_data",      node_profile_data)
-    g.add_node("run_fairness_tools", node_run_fairness_tools)
+    g.add_node("prep_data",          node_prep_data)
     g.add_node("debate_round",       node_debate_round)
     g.add_node("run_judge",          node_run_judge)
 
-    g.set_entry_point("profile_data")
-    g.add_edge("profile_data",       "run_fairness_tools")
-    g.add_edge("run_fairness_tools", "debate_round")
+    g.set_entry_point("prep_data")
+    g.add_edge("prep_data",          "debate_round")
     g.add_conditional_edges(
         "debate_round",
         _round_router,

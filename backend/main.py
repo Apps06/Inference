@@ -27,6 +27,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.config import GROK_MODELS, GEMINI_MODELS, DEFAULT_MODEL
 from backend.engine.debate_graph import run_debate_stream
+from backend.rl.trajectory import get_trajectory, get_stats, get_trajectory_list
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 log = logging.getLogger(__name__)
@@ -106,6 +107,28 @@ class ModelListResponse(BaseModel):
     grok: list[str]
     gemini: list[str]
     default: str
+
+
+class TrajectoryMeta(BaseModel):
+    debate_id: str
+    timestamp: str
+    use_case: str
+    model_backend: str
+    max_rounds: int
+    protected_attributes: list[str]
+    target_column: str
+    bias_score: int | None
+    severity: str | None
+    total_reward: float | None
+
+
+class TrajectoryStatsResponse(BaseModel):
+    total_debates: int
+    avg_bias_score: float | None
+    avg_total_reward: float | None
+    avg_per_agent_rewards: dict
+    use_case_breakdown: dict
+    model_breakdown: dict
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +220,41 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
             }
 
     return EventSourceResponse(_generate())
+
+
+# ---------------------------------------------------------------------------
+# Trajectory / History endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/trajectories", tags=["history"], response_model=list[TrajectoryMeta])
+async def list_trajectories(limit: int = 50):
+    """
+    Return a lightweight summary list of past debates, newest-first.
+    Each item includes debate_id, timestamp, bias_score, severity, total_reward.
+    """
+    return get_trajectory_list(limit=limit)
+
+
+@app.get("/api/trajectories/stats", tags=["history"], response_model=TrajectoryStatsResponse)
+async def trajectory_stats():
+    """
+    Aggregate statistics across all logged debates:
+    total count, average bias score, average reward, per-agent reward means,
+    use-case breakdown, and model breakdown.
+    """
+    return get_stats()
+
+
+@app.get("/api/trajectories/{debate_id}", tags=["history"])
+async def get_debate(debate_id: str) -> dict:
+    """
+    Return the full record for a single debate: transcript, fairness metrics,
+    final report, global reward, and per-agent rewards.
+    """
+    record = get_trajectory(debate_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"Debate '{debate_id}' not found.")
+    return record
 
 
 # ---------------------------------------------------------------------------

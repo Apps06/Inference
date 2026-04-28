@@ -134,7 +134,10 @@ class TrajectoryStatsResponse(BaseModel):
 # Static / frontend
 # ---------------------------------------------------------------------------
 
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+# Robust path resolution for Vercel and local dev
+BASE_DIR = Path(__file__).parent.parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+
 if FRONTEND_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
@@ -143,7 +146,12 @@ if FRONTEND_DIR.exists():
 async def serve_index() -> HTMLResponse:
     index_path = FRONTEND_DIR / "index.html"
     if not index_path.exists():
-        raise HTTPException(status_code=404, detail="Frontend not built.")
+        # Fallback for some serverless environments where relative paths might shift
+        index_path = Path("frontend/index.html")
+        
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail=f"Frontend not found at {FRONTEND_DIR.absolute()}")
+    
     return HTMLResponse(index_path.read_text(encoding="utf-8"))
 
 

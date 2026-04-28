@@ -212,8 +212,19 @@ function _animateCount(el, targetVal, durationMs = 700) {
 }
 
 function showScore(report) {
-  const score    = report.bias_score ?? 50;
-  const severity = report.severity   || 'Unknown';
+  const score    = report.bias_score;
+  const severity = report.severity || 'Unknown';
+
+  // Don't show the score box if there's no score
+  if (score == null) {
+    // Still show severity as a status
+    scoreBox.classList.remove('hidden');
+    scoreValue.textContent = '--';
+    scoreValue.className = '';
+    scoreSeverity.textContent = severity.toUpperCase();
+    scoreSummary.textContent  = report.summary || '';
+    return;
+  }
 
   scoreBox.classList.remove('hidden');
   scoreValue.className = _scoreClass(score);
@@ -269,6 +280,28 @@ function hideScore() {
   rewardTotal.innerHTML     = '';
 }
 
+// ── Minimal markdown → HTML renderer (bold, headers, bullets) ────
+function renderMarkdown(text) {
+  if (!text) return '';
+  return text
+    // Escape HTML first
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // ### headers
+    .replace(/^### (.+)$/gm, '<span class="md-h3">$1</span>')
+    .replace(/^## (.+)$/gm,  '<span class="md-h2">$1</span>')
+    .replace(/^# (.+)$/gm,   '<span class="md-h1">$1</span>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Bullet lists (lines starting with - or *)
+    .replace(/^[\-\*] (.+)$/gm, '<span class="md-bullet">• $1</span>')
+    // Numbered lists
+    .replace(/^(\d+)\. (.+)$/gm, '<span class="md-bullet"><span class="md-num">$1.</span> $2</span>')
+    // Newlines → <br>
+    .replace(/\n/g, '<br>');
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // SSE EVENT HANDLER
 // ═══════════════════════════════════════════════════════════════════
@@ -278,6 +311,15 @@ function onSSE(eventType, data) {
     case 'round_start': {
       const n = (data.round ?? 0) + 1;
       log(`\n── ROUND ${n} ${'─'.repeat(40)}`, 'round-header');
+      break;
+    }
+
+    case 'tool_use': {
+      const agentName = data.agent_name || data.agent;
+      const argsStr = Object.entries(data.args || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join(', ');
+      log(`⚡ ${agentName} investigating: ${data.tool}(${argsStr})`, 'dim italic');
       break;
     }
 
@@ -294,27 +336,95 @@ function onSSE(eventType, data) {
       }
 
       log(`${role}:`, 'agent-header');
-      log(data.content || '', 'agent-body');
+      // Render markdown in agent responses
+      const bodyEl = document.createElement('div');
+      bodyEl.className = 'log-line agent-body';
+      bodyEl.innerHTML = renderMarkdown(data.content || '');
+      debateOutput.appendChild(bodyEl);
+      debateOutput.scrollTop = debateOutput.scrollHeight;
       break;
     }
 
     case 'final_report': {
       setAgentState('final_judge', 'done');
-      log('\n── FINAL REPORT ──────────────────────────────', 'round-header');
 
-      if (data.flagged_issues?.length) {
-        log(`FLAGGED ISSUES (${data.flagged_issues.length}):`, 'agent-header');
-        data.flagged_issues.forEach(issue => {
-          log(`  [${(issue.severity || '').toUpperCase()}] ${issue.issue}`, 'agent-body');
-          if (issue.evidence) log(`    Evidence: ${issue.evidence}`, 'dim');
-        });
+      // ── Divider ──────────────────────────────────────────────────
+      log('\n── FINAL REPORT ' + '─'.repeat(37), 'round-header');
+
+      // ── Summary ──────────────────────────────────────────────────
+      if (data.summary) {
+        log('SUMMARY:', 'agent-header');
+        // Wrap in a container so it word-wraps nicely
+        const summaryEl = document.createElement('div');
+        summaryEl.className = 'log-line agent-body report-summary';
+        summaryEl.textContent = data.summary;
+        debateOutput.appendChild(summaryEl);
+        debateOutput.scrollTop = debateOutput.scrollHeight;
       }
 
-      if (data.mitigation_steps?.length) {
-        log('MITIGATION STEPS:', 'agent-header');
-        data.mitigation_steps.forEach((m, i) => {
-          log(`  ${i + 1}. [${(m.priority || '').toUpperCase()}] ${m.step}`, 'agent-body');
+      // ── Quick stats row ──────────────────────────────────────────
+      const statsEl = document.createElement('div');
+      statsEl.className = 'log-line report-stats-row';
+      statsEl.innerHTML =
+        `<span class="report-stat"><span class="report-stat-label">LEGAL RISK</span><span class="report-stat-value">${(data.legal_risk || '—').toUpperCase()}</span></span>` +
+        `<span class="report-stat"><span class="report-stat-label">CONFIDENCE</span><span class="report-stat-value">${(data.confidence || '—').toUpperCase()}</span></span>` +
+        (data.bias_score != null ? `<span class="report-stat"><span class="report-stat-label">BIAS SCORE</span><span class="report-stat-value score-${_scoreClass(data.bias_score)}">${data.bias_score}</span></span>` : '');
+      debateOutput.appendChild(statsEl);
+      debateOutput.scrollTop = debateOutput.scrollHeight;
+
+      // ── Flagged Issues ───────────────────────────────────────────
+      if (data.flagged_issues?.length) {
+        log(`\nFLAGGED ISSUES (${data.flagged_issues.length}):`, 'agent-header');
+        data.flagged_issues.forEach((issue, i) => {
+          const sev = (issue.severity || '').toUpperCase();
+          const sevClass = sev === 'HIGH' || sev === 'CRITICAL' ? 'error' :
+                           sev === 'MEDIUM' ? 'warn' : 'dim';
+          const issueEl = document.createElement('div');
+          issueEl.className = 'log-line report-issue';
+          issueEl.innerHTML =
+            `<span class="issue-num">${i + 1}.</span>` +
+            `<span class="issue-badge ${sevClass}">${sev}</span>` +
+            `<span class="issue-text">${issue.issue || issue.description || ''}</span>`;
+          debateOutput.appendChild(issueEl);
+
+          if (issue.description && issue.description !== issue.issue) {
+            const descEl = document.createElement('div');
+            descEl.className = 'log-line dim report-issue-desc';
+            descEl.textContent = '    ' + issue.description;
+            debateOutput.appendChild(descEl);
+          }
+          if (issue.evidence) {
+            const evEl = document.createElement('div');
+            evEl.className = 'log-line dim report-issue-desc';
+            evEl.textContent = '    Evidence: ' + issue.evidence;
+            debateOutput.appendChild(evEl);
+          }
         });
+        debateOutput.scrollTop = debateOutput.scrollHeight;
+      }
+
+      // ── Mitigation Steps ─────────────────────────────────────────
+      if (data.mitigation_steps?.length) {
+        log('\nMITIGATION STEPS:', 'agent-header');
+        data.mitigation_steps.forEach((m, i) => {
+          const pri = (m.priority || '').toUpperCase();
+          const priClass = pri === 'HIGH' || pri === 'CRITICAL' ? 'error' :
+                           pri === 'MEDIUM' ? 'warn' : 'dim';
+          const stepEl = document.createElement('div');
+          stepEl.className = 'log-line report-issue';
+          stepEl.innerHTML =
+            `<span class="issue-num">${i + 1}.</span>` +
+            (pri ? `<span class="issue-badge ${priClass}">${pri}</span>` : '') +
+            `<span class="issue-text">${m.step || m.action || ''}</span>`;
+          debateOutput.appendChild(stepEl);
+          if (m.rationale) {
+            const ratEl = document.createElement('div');
+            ratEl.className = 'log-line dim report-issue-desc';
+            ratEl.textContent = '    Rationale: ' + m.rationale;
+            debateOutput.appendChild(ratEl);
+          }
+        });
+        debateOutput.scrollTop = debateOutput.scrollHeight;
       }
 
       if (data.debate_id) {
@@ -322,7 +432,6 @@ function onSSE(eventType, data) {
       }
 
       showScore(data);
-      // Reward breakdown will be fetched separately after stream ends
       break;
     }
 

@@ -233,5 +233,6 @@ JUDGE_AGENT = {
     "id": "final_judge",
     "name": "Final Judge",
     "color": "#eab308",
+    "emoji": "⚖️",
     "system_prompt": FINAL_JUDGE_SYSTEM,
 }

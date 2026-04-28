@@ -1,19 +1,22 @@
 """
-Agent runner — v2.
+Agent runner — v3 (Agentic with Tool Use).
 
-Changes from v1:
-- Per-agent exception handling: a single agent failure is caught and
-  replaced with an error AgentMessage, so one bad API call can't crash
-  an entire debate round.
-- Context is capped to avoid silent token-limit failures for large CSVs.
-- Use_case template variable is substituted cleanly.
+Each agent is a genuine agentic loop:
+  1. Receives context + debate history
+  2. Reasons about what tools to call (Gemini function calling)
+  3. Executes tools (statistical analysis, legal lookup, etc.)
+  4. Incorporates tool results into final analysis
+
+Agents fire sequentially with a stagger to respect free-tier rate limits.
+Tool events are streamed to the frontend in real-time.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Callable
 
-from backend.engine.models import generate
+from backend.engine.models import generate, generate_agentic
 from backend.engine.state import AgentMessage, DebateState
 from backend.agents.prompts import (
     AGENTS,
@@ -21,10 +24,11 @@ from backend.agents.prompts import (
     DEBATE_HISTORY_BLOCK,
     JUDGE_AGENT,
 )
+from backend.agents.tools import AGENT_TOOLS, TOOL_REGISTRY
 
 log = logging.getLogger(__name__)
 
-_MAX_CSV_CHARS = 4_000   # ~1k tokens; keeps prompt sane for large datasets
+_MAX_CSV_CHARS = 4_000
 _MAX_HISTORY_CHARS = 8_000
 
 
@@ -67,19 +71,42 @@ def _history(state: DebateState, exclude_id: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
-# Single agent
+# Agentic prompt — instructs the model to use tools
 # ---------------------------------------------------------------------------
 
-async def _run_one(agent_meta: dict, state: DebateState, round_num: int) -> AgentMessage:
+AGENTIC_INSTRUCTION = """
+You have access to analysis tools. Use them to strengthen your arguments with evidence.
+
+IMPORTANT: When you have relevant data available, call at least one tool to ground your analysis in concrete evidence before giving your response. Do not just theorize — investigate.
+
+After receiving tool results, incorporate the findings into your analysis. Cite specific numbers and metrics from the tool outputs.
+"""
+
+
+# ---------------------------------------------------------------------------
+# Single agent — agentic execution
+# ---------------------------------------------------------------------------
+
+async def _run_one(
+    agent_meta: dict,
+    state: DebateState,
+    round_num: int,
+    agent_index: int,
+    on_tool_use: Callable | None = None,
+) -> AgentMessage:
     use_case = state.get("use_case", "general")
     system = agent_meta["system_prompt"].replace("{use_case}", use_case)
     context = _context(state)
+    csv_text = state.get("dataset_csv", "")
+
+    # Enhance system prompt with agentic instructions
+    system_agentic = system + "\n" + AGENTIC_INSTRUCTION
 
     if round_num == 0:
         user_msg = (
             f"{context}\n\n"
             f"User question: {state.get('user_query', 'Audit this dataset for bias.')}\n\n"
-            "Provide your initial analysis."
+            "Provide your initial analysis. Use your tools to investigate the data if available."
         )
     else:
         history = _history(state, exclude_id=agent_meta["id"])
@@ -87,28 +114,63 @@ async def _run_one(agent_meta: dict, state: DebateState, round_num: int) -> Agen
             f"{context}\n\n"
             f"{history}\n\n"
             f"Round {round_num + 1}: Respond to the arguments above. "
-            "Challenge weak points, defend strong ones, and update your position."
+            "Use your tools to verify or challenge claims with evidence. "
+            "Update your position based on new findings."
         )
 
-    content = await generate(
-        system_prompt=system,
+    # Get the agent's tool set
+    agent_id = agent_meta["id"]
+    tools = AGENT_TOOLS.get(agent_id)
+
+    # Run the agentic loop
+    content, tool_calls = await generate_agentic(
+        system_prompt=system_agentic,
         user_message=user_msg,
-        model_name="grok-4.20-reasoning",
+        tools=tools,
+        tool_registry=TOOL_REGISTRY,
+        csv_text=csv_text,
+        model_name=state.get("model_backend", "gemini-2.5-flash"),
         temperature=0.4 if round_num == 0 else 0.55,
         max_tokens=1024,
+        agent_index=agent_index,
     )
+
+    # Emit tool-use events for the frontend
+    if on_tool_use and tool_calls:
+        for tc in tool_calls:
+            await on_tool_use({
+                "agent": agent_id,
+                "agent_name": agent_meta["name"],
+                "tool": tc["tool"],
+                "args": tc["args"],
+            })
+
+    # Format the response — prepend tool usage summary if tools were called
+    if tool_calls:
+        tool_summary = "\n".join(
+            f"🔧 **Used tool:** `{tc['tool']}` → analyzed {', '.join(f'{k}={v}' for k, v in tc['args'].items())}"
+            for tc in tool_calls
+        )
+        content = f"{tool_summary}\n\n{content}"
+
     return AgentMessage(
-        agent=agent_meta["id"],
+        agent=agent_id,
         role=agent_meta["name"],
         content=content,
         round=round_num,
     )
 
 
-async def _run_one_safe(agent_meta: dict, state: DebateState, round_num: int) -> AgentMessage:
-    """Wraps _run_one with per-agent error handling so one failure can't abort the round."""
+async def _run_one_safe(
+    agent_meta: dict,
+    state: DebateState,
+    round_num: int,
+    agent_index: int,
+    on_tool_use: Callable | None = None,
+) -> AgentMessage:
+    """Wraps _run_one with per-agent error handling."""
     try:
-        return await _run_one(agent_meta, state, round_num)
+        return await _run_one(agent_meta, state, round_num, agent_index, on_tool_use)
     except Exception as exc:
         log.error("Agent %s round %d failed: %s", agent_meta["id"], round_num, exc)
         return AgentMessage(
@@ -123,14 +185,28 @@ async def _run_one_safe(agent_meta: dict, state: DebateState, round_num: int) ->
 # Public API
 # ---------------------------------------------------------------------------
 
-async def run_all_agents_parallel(state: DebateState, round_num: int) -> list[AgentMessage]:
-    """Run all 5 analyst agents concurrently for a single debate round."""
-    tasks = [_run_one_safe(agent, state, round_num) for agent in AGENTS]
-    return list(await asyncio.gather(*tasks))
+async def run_all_agents_parallel(
+    state: DebateState,
+    round_num: int,
+    on_tool_use: Callable | None = None,
+) -> list[AgentMessage]:
+    """Run all 5 analyst agents with a stagger delay.
+
+    Even with per-agent keys, Gemini free tier enforces IP-based rate limits.
+    # Stagger: 10s delay between agents to prevent IP-based rate limiting on free tier
+    """
+    results: list[AgentMessage] = []
+    for i, agent in enumerate(AGENTS):
+        if i > 0:
+            await asyncio.sleep(10)
+        msg = await _run_one_safe(agent, state, round_num, agent_index=i, on_tool_use=on_tool_use)
+        results.append(msg)
+    return results
 
 
 async def run_judge(state: DebateState) -> str:
-    """Run the Final Judge and return its raw response string."""
+    """Run the Final Judge and return its raw response string.
+    Uses simple generation (no tools) — the judge synthesizes, not investigates."""
     use_case = state.get("use_case", "general")
     system = JUDGE_AGENT["system_prompt"].replace("{use_case}", use_case)
     context = _context(state)
@@ -142,32 +218,25 @@ async def run_judge(state: DebateState) -> str:
         "All debate rounds are complete. "
         "Produce the final bias audit report as valid JSON."
     )
-    
+
     try:
-        # Primary attempt: Use Gemini for the final judgment
         return await generate(
             system_prompt=system,
             user_message=user_msg,
-            model_name="gemini-2.5-pro",
+            model_name=state.get("model_backend", "gemini-2.5-flash"),
             temperature=0.2,
             max_tokens=2048,
+            agent_index=0,
         )
     except Exception as exc:
-        log.warning("Gemini failed during final judgment: %s. Falling back to Grok.", exc)
-        try:
-            # Fallback attempt: Use Grok if Gemini is down
-            return await generate(
-                system_prompt=system,
-                user_message=user_msg,
-                model_name="grok-4.20-reasoning",
-                temperature=0.2,
-                max_tokens=2048,
-            )
-        except Exception as fallback_exc:
-            log.error("Fallback Grok model also failed: %s", fallback_exc)
-            # Final safety net: Return a valid JSON error string so the frontend doesn't crash
-            import json
-            return json.dumps({
-                "error": "Model Failure",
-                "message": "Both primary (Gemini) and fallback (Grok) models failed to generate the final report."
-            })
+        log.error("Final judge failed: %s", exc)
+        import json
+        return json.dumps({
+            "bias_score": 0,
+            "severity": "ERROR",
+            "summary": f"MODEL FAILURE: The judge could not synthesize a final report. Error: {exc}",
+            "flagged_issues": [],
+            "mitigation_steps": [],
+            "legal_risk": "N/A",
+            "confidence": "N/A"
+        })

@@ -262,6 +262,7 @@ body { font-family: var(--font-mono); overflow: hidden; -webkit-font-smoothing: 
   to   { opacity: 1; transform: translateX(0); }
 }
 .log-line.dim { color: var(--grey-label); }
+.log-line.italic { font-style: italic; }
 .log-line.round-header {
   color: var(--grey-label);
   letter-spacing: 0.1em;
@@ -610,3 +611,131 @@ body { font-family: var(--font-mono); overflow: hidden; -webkit-font-smoothing: 
   #app { padding: 16px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   FINAL REPORT — Rich Formatting
+═══════════════════════════════════════════════════════════════════ */
+
+/* Summary block — allows proper word-wrap */
+.report-summary {
+  white-space: normal !important;
+  line-height: 1.7;
+  color: var(--grey-log);
+  padding-left: 12px;
+  border-left: 2px solid #333;
+  margin: 4px 0 8px;
+}
+
+/* Stats row: Legal Risk | Confidence | Bias Score */
+.report-stats-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+  white-space: normal !important;
+}
+.report-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #1f1f1f;
+  border: 1px solid #2e2e2e;
+  border-radius: 3px;
+  padding: 5px 10px;
+}
+.report-stat-label {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--grey-label);
+  text-transform: uppercase;
+}
+.report-stat-value {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--white);
+  letter-spacing: 0.05em;
+}
+/* Bias score colouring inside stat chip */
+.score-low      { color: #6dffb3; }
+.score-moderate { color: #ffd666; }
+.score-high     { color: #ff9955; }
+.score-severe   { color: #ff5555; }
+
+/* Issue / mitigation rows */
+.report-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 3px 0;
+  white-space: normal !important;
+  line-height: 1.6;
+}
+.issue-num {
+  color: var(--grey-label);
+  font-size: 11px;
+  min-width: 16px;
+  flex-shrink: 0;
+}
+.issue-badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.issue-badge.error { background: rgba(255,85,85,0.15);  color: #ff5555; }
+.issue-badge.warn  { background: rgba(255,214,102,0.15); color: #ffd666; }
+.issue-badge.dim   { background: rgba(255,255,255,0.06); color: #888; }
+.issue-text {
+  color: var(--grey-log);
+  font-size: 12px;
+  flex: 1;
+}
+
+/* ── Indented description / evidence / rationale lines */
+.report-issue-desc {
+  padding-left: 24px;
+  white-space: normal !important;
+  font-size: 11px;
+  color: var(--grey-label);
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MARKDOWN RENDERING — inside agent-body text
+═══════════════════════════════════════════════════════════════════ */
+.agent-body { white-space: normal !important; }
+
+.agent-body strong { color: var(--white); font-weight: 700; }
+.agent-body em     { color: #c9b8ff; font-style: italic; }
+
+.md-h1, .md-h2, .md-h3 {
+  display: block;
+  font-family: var(--font-title);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin: 8px 0 2px;
+  color: var(--white);
+}
+.md-h1 { font-size: 14px; }
+.md-h2 { font-size: 13px; color: var(--grey-log); }
+.md-h3 { font-size: 12px; color: var(--grey-text); }
+
+.md-bullet {
+  display: block;
+  padding-left: 14px;
+  position: relative;
+  color: var(--grey-log);
+  line-height: 1.7;
+}
+.md-bullet::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+}
+.md-num {
+  color: var(--grey-label);
+  margin-right: 4px;
+}

@@ -44,17 +44,38 @@ def _extract_json(raw: str) -> dict:
     Parse the judge's JSON response, handling markdown code-fences and
     stray text before/after the JSON object.
     """
-    # Strip ```json ... ``` fences
-    raw = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.MULTILINE)
-    raw = re.sub(r"```\s*$", "", raw.strip(), flags=re.MULTILINE)
+    # 1. Try raw parse first (cleanest case)
+    try:
+        return json.loads(raw.strip())
+    except json.JSONDecodeError:
+        pass
 
-    # Find first { ... } block
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    # 2. Strip common markdown fences
+    text = raw.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*```$", "", text)
+
+    # 3. Find the outermost { ... }
+    match = re.search(r"(\{.*\})", text, re.DOTALL)
     if match:
+        candidate = match.group(1)
         try:
-            return json.loads(match.group())
+            return json.loads(candidate)
         except json.JSONDecodeError:
+            # Try even more aggressive cleaning if still failing
+            # (Sometimes LLMs put comments or trailing commas)
             pass
+
+    # 4. Final attempt: find anything that looks like JSON
+    # This is useful if there's text before/after the block
+    try:
+        # Find the first { and last }
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1:
+            return json.loads(text[start : end + 1])
+    except Exception:
+        pass
 
     raise ValueError("No valid JSON object found in judge response.")
 
@@ -93,8 +114,12 @@ async def node_debate_round(state: DebateState, config: RunnableConfig) -> dict:
     if queue:
         await queue.put({"event": "round_start", "data": {"round": round_num}})
 
+    async def _on_tool(tool_data):
+        if queue:
+            await queue.put({"event": "tool_use", "data": tool_data})
+
     try:
-        messages = await run_all_agents_parallel(state, round_num)
+        messages = await run_all_agents_parallel(state, round_num, on_tool_use=_on_tool)
     except Exception as exc:
         log.error("Debate round %d failed: %s", round_num, exc, exc_info=True)
         raise
@@ -120,21 +145,24 @@ async def node_run_judge(state: DebateState, config: RunnableConfig) -> dict:
             },
         })
 
+    # Cooldown: let Gemini rate-limit windows fully reset before the judge fires
+    await asyncio.sleep(8)
+
     raw = await run_judge(state)
 
     try:
         report = _extract_json(raw)
     except ValueError:
-        log.warning("Judge returned unparseable JSON; using fallback report.")
+        log.warning("Judge returned unparseable JSON; raw=%r", raw[:300])
+        # If JSON parse fails, show the raw text as the summary
         report = {
-            "bias_score": 50,
-            "severity": "Unknown",
-            "summary": raw[:600],
+            "bias_score": None,
+            "severity": "Pending",
+            "summary": raw.strip() if raw.strip() else "The judge could not produce a structured report.",
             "flagged_issues": [],
             "mitigation_steps": [],
-            "legal_risk": "Unknown",
+            "legal_risk": "Review manually",
             "confidence": "Low",
-            "agent_consensus": {},
             "parse_error": True,
         }
 

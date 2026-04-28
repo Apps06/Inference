@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
-from backend.config import GROK_MODELS, GEMINI_MODELS, DEFAULT_MODEL
+from backend.config import AVAILABLE_MODELS, DEFAULT_MODEL
 from backend.engine.debate_graph import run_debate_stream
 from backend.rl.trajectory import get_trajectory, get_stats, get_trajectory_list
 
@@ -97,15 +97,14 @@ class ChatRequest(BaseModel):
     @field_validator("model")
     @classmethod
     def model_must_be_valid(cls, v: str) -> str:
-        all_models = GROK_MODELS + GEMINI_MODELS
+        all_models = AVAILABLE_MODELS
         if v not in all_models:
             raise ValueError(f"Unknown model '{v}'. Valid options: {all_models}")
         return v
 
 
 class ModelListResponse(BaseModel):
-    grok: list[str]
-    gemini: list[str]
+    models: list[str]
     default: str
 
 
@@ -159,7 +158,7 @@ async def health() -> dict:
 
 @app.get("/api/models", response_model=ModelListResponse, tags=["meta"])
 async def list_models() -> ModelListResponse:
-    return ModelListResponse(grok=GROK_MODELS, gemini=GEMINI_MODELS, default=DEFAULT_MODEL)
+    return ModelListResponse(models=AVAILABLE_MODELS, default=DEFAULT_MODEL)
 
 
 @app.post("/api/upload", response_model=UploadResponse, tags=["data"])

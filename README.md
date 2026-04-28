@@ -1,6 +1,6 @@
 # Unbiased AI Decision
 
-> A multi-agent AI debate system that audits datasets and models for hidden bias — built with LangGraph, xAI Grok, and Google Gemini.
+> A multi-agent AI debate system that audits datasets and models for hidden bias — built with LangGraph and Google Gemini.
 
 ## How it works
 
@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ### 2. Configure API keys
 ```bash
 cp .env.example .env
-# Edit .env and add your XAI_API_KEY and/or GOOGLE_API_KEY
+# Edit .env and add your GOOGLE_API_KEY
 ```
 
 ### 3. Run the server
@@ -51,7 +51,7 @@ gcloud run deploy inference \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars="XAI_API_KEY=your_key,GOOGLE_API_KEY=your_key"
+  --set-env-vars="GOOGLE_API_KEY=your_key"
 ```
 
 ## Tech Stack
@@ -59,21 +59,16 @@ gcloud run deploy inference \
 | Layer | Technology |
 |-------|-----------|
 | Orchestration | LangGraph (cyclic StateGraph) |
-| Models | xAI Grok 4.20 + Google Gemini 2.5 |
+| Models | Google Gemini 2.5 |
 | Fairness Tools | Fairlearn |
 | Backend | FastAPI + SSE streaming |
-| Frontend | Vanilla HTML/CSS/JS (Perplexity + Grok UI style) |
+| Frontend | Vanilla HTML/CSS/JS |
 | RL Logging | JSONL trajectories for future MARTI/PPO training |
 
 ## Model Support
 
-**xAI Grok (via OpenAI-compatible API)**
-- `grok-4.20-reasoning` (default, best quality)
-- `grok-4.20-non-reasoning` (faster)
-- `grok-4.1-fast-reasoning` (cost-efficient)
-
 **Google Gemini (via google-genai SDK)**
-- `gemini-2.5-pro`
+- `gemini-2.5-pro` (default, best quality)
 - `gemini-2.5-flash`
 - `gemini-3-flash-preview`
 

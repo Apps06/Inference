@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>INFERENCE — Multi Agent Debate Model</title>
-  <meta name="description" content="Multi-agent AI debate system for unbiased fairness auditing. Powered by LangGraph, Grok, and Gemini." />
+  <title>INFERENCE — Multi Agent Debate Interface</title>
+  <meta name="description" content="Multi-agent AI debate system for unbiased fairness auditing. Powered by LangGraph and Gemini." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@700&family=Outfit:wght@900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/styles.css" />
@@ -16,7 +16,7 @@
   <!-- ── HEADER ─────────────────────────────────────────────────── -->
   <header id="header">
     <h1 id="title">INFERENCE</h1>
-    <p id="subtitle">Multi Agent Debate Model</p>
+    <p id="subtitle">Multi Agent Debate Interface</p>
   </header>
 
   <!-- ── TAB BAR ────────────────────────────────────────────────── -->
@@ -128,16 +128,9 @@
       <label class="cfg-label">
         MODEL
         <select id="model-select" class="cfg-select">
-          <optgroup label="xAI Grok">
-            <option value="grok-4.20-reasoning" selected>GROK 4.20 REASONING</option>
-            <option value="grok-4.20-non-reasoning">GROK 4.20 FAST</option>
-            <option value="grok-4.1-fast-reasoning">GROK 4.1 FAST REASONING</option>
-            <option value="grok-4.1-fast-non-reasoning">GROK 4.1 FAST</option>
-          </optgroup>
-          <optgroup label="Google Gemini">
+          <optgroup label="Google Gemini (Primary)">
+            <option value="gemini-2.5-flash" selected>GEMINI 2.5 FLASH</option>
             <option value="gemini-2.5-pro">GEMINI 2.5 PRO</option>
-            <option value="gemini-2.5-flash">GEMINI 2.5 FLASH</option>
-            <option value="gemini-3-flash-preview">GEMINI 3 FLASH</option>
           </optgroup>
         </select>
       </label>
